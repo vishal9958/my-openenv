@@ -1,0 +1,19 @@
+version: 1
+
+name: "MyEnvV4"
+version_code: "v0.1.0"
+description: "ServerMaintenanceEnv for the hackathon"
+
+runtime:
+  python: ">=3.9"
+  entrypoint: "my_env_v4:MyEnvV4Env"
+
+task:
+  default_task: easy-restart
+  tasks:
+    - name: easy-restart
+      description: "Restart the web service"
+    - name: medium-logfix
+      description: "Fix missing file and restart web service"
+    - name: hard-patch
+      description: "Fix config file syntax and restart web service"

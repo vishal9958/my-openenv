@@ -1,0 +1,18 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "my_env_v4"
+version = "0.1.0"
+description = "Hackathon OpenEnv Task"
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = [
+    "openenv-core>=0.2.0",
+    "pydantic",
+    "openai"
+]
+
+[project.scripts]
+server = "server.app:main"
