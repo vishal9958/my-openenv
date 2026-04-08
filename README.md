@@ -1,3 +1,11 @@
+---
+title: OpenEnv
+emoji: 🚀
+colorFrom: blue
+colorTo: indigo
+sdk: docker
+pinned: false
+---
 # ServerMaintenanceEnv - OpenEnv Hackathon Project
 
 A simulated Unix system environment designed for training LLMs on server maintenance tasks.
