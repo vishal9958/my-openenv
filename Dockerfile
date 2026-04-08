@@ -13,4 +13,4 @@ COPY . .
 EXPOSE 7860
 
 # We use the built server app explicitly
-CMD ["python", "server/app.py"]
+CMD ["python", "-m", "server.app"]
