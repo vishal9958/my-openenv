@@ -1,8 +1,9 @@
 from pydantic import BaseModel, Field
 from typing import Dict, Any, Optional, Literal, List
-from openenv.core.client_types import StepResult
+from openenv.core.env_server.interfaces import Environment
+from openenv.core.env_server.types import Action, Observation, State
 
-class MyEnvV4Action(BaseModel):
+class MyEnvV4Action(Action):
     """The allowed actions for the ServerMaintenance agent."""
     action_type: Literal["run_command", "submit"] = Field(
         ..., description="The type of action to perform. 'run_command' executes a shell command on the simulated server, 'submit' ends the task."
@@ -11,11 +12,11 @@ class MyEnvV4Action(BaseModel):
         None, description="The command to execute, if action_type is 'run_command'. e.g. 'cat /var/log/syslog', 'systemctl restart web', 'echo \"fix\" > config.txt'."
     )
 
-class MyEnvV4Observation(BaseModel):
+class MyEnvV4Observation(Observation):
     last_output: str
     service_status: Dict[str, str]
 
-class MyEnvV4State(BaseModel):
+class MyEnvV4State(State):
     task_name: str
     filesystem: Dict[str, str]
     service_status: Dict[str, str]
@@ -24,7 +25,7 @@ class MyEnvV4State(BaseModel):
     done: bool
     reward: float
 
-class MyEnvV4Env:
+class MyEnvV4Env(Environment[MyEnvV4Action, MyEnvV4Observation, MyEnvV4State]):
     """
     A simulated Server Maintenance environment.
     Tasks:
@@ -34,7 +35,8 @@ class MyEnvV4Env:
     """
     
     def __init__(self, **kwargs):
-        self.state = None
+        super().__init__(**kwargs)
+        self.internal_state: Optional[MyEnvV4State] = None
     
     def _init_easy(self):
         return {
@@ -57,7 +59,13 @@ class MyEnvV4Env:
             "service_status": {"web": "failed"},
         }
     
-    def reset(self, task: str = "easy-restart") -> Dict[str, Any]:
+    def reset(
+        self, 
+        seed: Optional[int] = None, 
+        episode_id: Optional[str] = None, 
+        task: str = "easy-restart",
+        **kwargs: Any
+    ) -> MyEnvV4Observation:
         """Resets the environment for a given task."""
         if task == "easy-restart":
             init_data = self._init_easy()
@@ -69,7 +77,7 @@ class MyEnvV4Env:
             task = "easy-restart"
             init_data = self._init_easy()
 
-        self.state = MyEnvV4State(
+        self.internal_state = MyEnvV4State(
             task_name=task,
             filesystem=init_data["filesystem"],
             service_status=init_data["service_status"],
@@ -80,8 +88,9 @@ class MyEnvV4Env:
         )
         return self._observation()
 
-    def state(self) -> Dict[str, Any]:
-        return self.state.model_dump() if self.state else {}
+    @property
+    def state(self) -> MyEnvV4State:
+        return self.internal_state
 
     def _observation(self) -> MyEnvV4Observation:
         return MyEnvV4Observation(
@@ -182,15 +191,20 @@ class MyEnvV4Env:
             else:
                 return " ".join(tokens[1:])
         elif prog == "systemctl":
-            return self.handle_systemctl(parts) # Wait, should be _handle_systemctl
+            return self._handle_systemctl(parts)
         else:
             return f"{prog}: command not found"
 
-    def step(self, action: MyEnvV4Action) -> StepResult:
-        if self.state.done:
-            return StepResult(observation=self._observation(), reward=0.0, done=True)
+    def step(
+        self, 
+        action: MyEnvV4Action,
+        timeout_s: Optional[float] = None,
+        **kwargs: Any
+    ) -> MyEnvV4Observation:
+        if self.internal_state.done:
+            return self._observation()
             
-        self.state.steps_taken += 1
+        self.internal_state.steps_taken += 1
         
         # In case action is a dictionary (from GenericClient) or a Pydantic model
         if isinstance(action, dict):
@@ -201,28 +215,31 @@ class MyEnvV4Env:
             command = action.command
 
         if action_type == "submit":
-            self.state.done = True
-            self.state.last_output = "Task submitted."
+            self.internal_state.done = True
+            self.internal_state.last_output = "Task submitted."
         elif action_type == "run_command" and command:
             if command.startswith("systemctl"):
                 output = self._handle_systemctl(command.split())
             else:
                 output = self._handle_command(command)
-            self.state.last_output = output
+            self.internal_state.last_output = output
         else:
-            self.state.last_output = "Invalid action."
+            self.internal_state.last_output = "Invalid action."
             
         # Compute partial or full reward
         curr_reward = self._grade()
-        step_reward = curr_reward - self.state.reward
-        self.state.reward = curr_reward
+        step_reward = curr_reward - self.internal_state.reward
+        self.internal_state.reward = curr_reward
         
         # Auto-complete if full credit earned
-        if self.state.reward >= 1.0:
-            self.state.done = True
+        if self.internal_state.reward >= 1.0:
+            self.internal_state.done = True
             
-        return StepResult(
-            observation=self._observation(),
-            reward=round(step_reward, 2),
-            done=self.state.done
-        )
+        obs = self._observation()
+        obs.reward = round(step_reward, 2)
+        obs.done = self.internal_state.done
+        return obs
+
+    def close(self) -> None:
+        """Clean up resources used by the environment."""
+        pass
