@@ -11,6 +11,10 @@ class MyEnvV4Action(BaseModel):
         None, description="The command to execute, if action_type is 'run_command'. e.g. 'cat /var/log/syslog', 'systemctl restart web', 'echo \"fix\" > config.txt'."
     )
 
+class MyEnvV4Observation(BaseModel):
+    last_output: str
+    service_status: Dict[str, str]
+
 class MyEnvV4State(BaseModel):
     task_name: str
     filesystem: Dict[str, str]
@@ -79,11 +83,11 @@ class MyEnvV4Env:
     def state(self) -> Dict[str, Any]:
         return self.state.model_dump() if self.state else {}
 
-    def _observation(self) -> Dict[str, Any]:
-        return {
-            "last_output": self.state.last_output,
-            "service_status": self.state.service_status
-        }
+    def _observation(self) -> MyEnvV4Observation:
+        return MyEnvV4Observation(
+            last_output=self.state.last_output,
+            service_status=self.state.service_status
+        )
         
     def _grade(self) -> float:
         """Grading logic (easy, medium, hard). Returns a score between 0.0 and 1.0."""
