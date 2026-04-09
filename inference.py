@@ -99,7 +99,7 @@ def run_inference():
         print(f"[STEP] step={step} action={action_str} reward={reward:.2f} done={str(done).lower()} error={error_msg}")
         
         # Add to prompt so model knows what happened
-        prompt += f"Action taken: {action_str}\nObservation: {result.observation}\n====\n"
+        prompt += f"Action taken: {action_str}\nObservation: {result}\n====\n"
         
     score = env.state.reward if env.state else 0.0
     success = score >= 1.0
