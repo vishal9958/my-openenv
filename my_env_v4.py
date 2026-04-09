@@ -117,7 +117,9 @@ class MyEnvV4Env(Environment[MyEnvV4Action, MyEnvV4Observation, MyEnvV4State]):
                 score += 0.5
             if self.state.service_status.get("web") == "active":
                 score += 0.5
-        return min(score, 1.0)
+        base_score = min(score, 1.0)
+        # Scaled to be strictly between 0 and 1: [0.05, 0.95]
+        return 0.05 + 0.90 * base_score
 
     def _handle_systemctl(self, args: List[str]) -> str:
         if len(args) < 3:
@@ -231,8 +233,8 @@ class MyEnvV4Env(Environment[MyEnvV4Action, MyEnvV4Observation, MyEnvV4State]):
         step_reward = curr_reward - self.internal_state.reward
         self.internal_state.reward = curr_reward
         
-        # Auto-complete if full credit earned
-        if self.internal_state.reward >= 1.0:
+        # Auto-complete if full credit earned (max is now 0.95)
+        if self.internal_state.reward >= 0.9:
             self.internal_state.done = True
             
         obs = self._observation()
